@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum SubscriptionStatus {
+  incomplete
+  trialing
+  active
+  past_due
+  canceled
+  unpaid
+}
+
+enum Sentiment {
+  positive
+  neutral
+  negative
+}
+
+enum ReviewStatus {
+  new
+  draft_ready
+  approved
+  published
+  skipped
+}
+
+enum PlanTier {
+  starter
+  pro
+}
+
+model Business {
+  id             String   @id @default(cuid())
+  name           String
+  city           String
+  googlePlaceId  String   @unique @map("google_place_id")
+  ownerEmail     String   @map("owner_email")
+  language       String   @default("nl")
+  telegramChatId String?  @map("telegram_chat_id")
+  reviewUrl      String?  @map("review_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  reviews      Review[]
+  subscription Subscription?
+
+  @@index([ownerEmail])
+  @@index([city])
+  @@map("businesses")
+}
+
+model Review {
+  id         String       @id @default(cuid())
+  businessId String       @map("business_id")
+  rating     Int
+  text       String
+  author     String
+  sentiment  Sentiment?
+  aiResponse String?      @map("ai_response")
+  language   String       @default("nl")
+  googleReviewId String?  @unique @map("google_review_id")
+  status     ReviewStatus @default(new)
+  publishedAt DateTime?   @map("published_at")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, createdAt])
+  @@index([status])
+  @@map("reviews")
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  businessId         String             @unique @map("business_id")
+  status             SubscriptionStatus @default(incomplete)
+  stripeCustomerId   String?            @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?          @unique @map("stripe_subscription_id")
+  plan               PlanTier           @default(starter)
+  currentPeriodEnd   DateTime?          @map("current_period_end")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
